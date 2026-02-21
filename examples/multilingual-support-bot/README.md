@@ -5,7 +5,7 @@ speech and language models.
 
 ## Pipeline
 
-1. **Transcribe** — Sarvam STT (Saarika v2) converts a customer WAV/MP3 query to text
+1. **Transcribe** — Sarvam STT (Saarika v2.5) converts a customer WAV/MP3 query to text
    and detects the spoken language automatically.
 
 2. **Respond** — Sarvam-M generates a concise, helpful support reply **in the same language**
