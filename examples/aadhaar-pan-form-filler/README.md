@@ -48,7 +48,7 @@ jupyter notebook aadhaar_pan_form_filler.ipynb
 - The demo image is clearly labelled **SPECIMEN — NOT VALID** and uses entirely
   fabricated data (Aadhaar number `1234 5678 9012`, name "Arjun Sharma").
 - Never commit real Aadhaar or PAN numbers to version control.
-- The `sample_data/` folder is in `.gitignore` — keep real ID images out of the repo.
+- A local `.gitignore` excludes `sample_data/`, `filled_form.html`, and `.env` from the repo.
 
 ---
 
