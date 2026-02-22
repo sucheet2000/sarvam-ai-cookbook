@@ -68,10 +68,12 @@ result = announce_crop_price("sugarcane", language_code="te-IN")
 | Error | Cause | Fix |
 | :--- | :--- | :--- |
 | `RuntimeError: SARVAM_API_KEY is not set` | Missing API key | Add key to `.env` |
+| `invalid_api_key_error` (403) | Invalid API key | Verify at [dashboard.sarvam.ai](https://dashboard.sarvam.ai) |
+| `insufficient_quota_error` (429) | API quota exceeded | Check usage limits |
+| `internal_server_error` (500) | Transient server issue | Wait and retry |
 | `ValueError: Unsupported crop` | Crop not in dataset | Use a supported crop name |
 | `ValueError: Unsupported language` | Language code not mapped | Use a supported BCP-47 code |
 | `RuntimeError: no audio returned` | TTS speaker/language mismatch | Check `_SPEAKER_MAP` |
-| `insufficient_quota_error` (429) | API quota exceeded | Check usage limits |
 
 ---
 
