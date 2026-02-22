@@ -16,7 +16,7 @@ Upload a photo or PDF of a hospital discharge summary and this notebook will:
 3. **Export** the explanation as a `.txt` file and optionally as a `.wav` audio file
    using Bulbul v3 TTS
 
-Supports 22 Indian languages + English.
+Supports 9 Indian languages + English.
 
 ## Sarvam APIs used
 

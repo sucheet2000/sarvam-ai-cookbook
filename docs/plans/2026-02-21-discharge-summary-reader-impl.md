@@ -1,6 +1,5 @@
 # Discharge Summary Reader — Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build a Jupyter notebook recipe that reads a hospital discharge summary image/PDF with Sarvam Document Intelligence, simplifies the medical content into a patient-friendly regional-language explanation with Sarvam-M, and exports the result as a text file plus optional Bulbul TTS audio.
 
