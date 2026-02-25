@@ -48,6 +48,7 @@ Existing recipes you can use as references:
 | `examples/aadhaar-pan-form-filler` | Doc Intelligence, Chat | OCR ID cards and fill HTML forms |
 | `examples/multilingual-support-bot` | STT, Chat, TTS | Full voice loop for customer support |
 | `examples/mandi-price-announcements` | Chat, TTS | Multilingual crop price announcements |
+| `examples/discharge-summary-reader` | Doc Intelligence, Chat, TTS | Reads discharge summaries and explains them in regional languages |
 | `notebooks/multilingual-sports-commentary` | Chat, Translate, TTS | Multilingual commentary generation |
 
 ---
@@ -429,6 +430,7 @@ test the full pipeline without any external files.
 | `examples/aadhaar-pan-form-filler` | `aadhaar_pan_form_filler.ipynb` | Fills HTML forms from ID cards |
 | `examples/multilingual-support-bot` | `multilingual_support_bot.ipynb` | Voice support bot |
 | `examples/mandi-price-announcements` | `mandi_price_announcements.ipynb` | Multilingual crop price announcements |
+| `examples/discharge-summary-reader` | `discharge_summary_reader.ipynb` | Reads discharge summaries and explains them in regional languages |
 | `notebooks/multilingual-sports-commentary` | `Multilingual_Sports_Commentary.ipynb` | Multilingual commentary |
 
 ---
