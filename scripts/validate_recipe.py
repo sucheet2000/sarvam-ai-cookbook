@@ -3,10 +3,18 @@
 Usage:
     python scripts/validate_recipe.py examples/my-recipe
     python scripts/validate_recipe.py examples/my-recipe --strict
+    python scripts/validate_recipe.py examples/my-recipe --json
+    python scripts/validate_recipe.py examples/my-recipe --fix
 
 Exit codes:
     0  — no errors found (warnings may be present)
     1  — one or more errors found (or any warnings when --strict is used)
+
+Flags:
+    --strict  Treat warnings as errors.
+    --json    Output results as a JSON array (machine-readable).
+    --fix     Auto-repair common issues (.gitignore, .gitkeep, .env.example)
+              before running validation.
 
 All checks are purely file-system based; no network calls are made and no
 API keys are required.
@@ -30,9 +38,10 @@ from packaging.version import Version
 class Issue(NamedTuple):
     """A single validation finding."""
 
-    severity: str  # "error" | "warning"
-    check: str     # short machine-readable check name
-    message: str   # human-readable description
+    severity: str              # "error" | "warning"
+    check: str                 # short machine-readable check name
+    message: str               # human-readable description
+    suggestion: str | None = None  # optional remediation hint
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +169,12 @@ def check_required_files(recipe_dir: Path) -> list[Issue]:
         recipe_dir / "outputs" / ".gitkeep",
     ]
     return [
-        Issue("error", "required-files", f"Missing required file: {p.relative_to(recipe_dir)}")
+        Issue(
+            "error",
+            "required-files",
+            f"Missing required file: {p.relative_to(recipe_dir)}",
+            "Create this file following the examples/TEMPLATE structure.",
+        )
         for p in required
         if not p.exists()
     ]
@@ -185,7 +199,12 @@ def check_gitignore(recipe_dir: Path) -> list[Issue]:
 
     content = gi.read_text(encoding="utf-8")
     return [
-        Issue("error", "gitignore", f"Missing pattern in .gitignore: {pat!r}")
+        Issue(
+            "error",
+            "gitignore",
+            f"Missing pattern in .gitignore: {pat!r}",
+            f"Add '{pat}' to the recipe .gitignore file.",
+        )
         for pat in _REQUIRED_GITIGNORE_PATTERNS
         if pat not in content
     ]
@@ -225,6 +244,7 @@ def check_requirements(recipe_dir: Path) -> list[Issue]:
             issues.append(Issue(
                 "error", "requirements",
                 f"Package missing >= pin: {line!r}",
+                "Pin dependencies using >= (example: pandas>=2.0.0).",
             ))
 
         if pkg_name == "sarvamai":
@@ -234,6 +254,7 @@ def check_requirements(recipe_dir: Path) -> list[Issue]:
                 issues.append(Issue(
                     "error", "requirements",
                     f"sarvamai must be >={_MIN_SARVAMAI_VERSION}, found: {line!r}",
+                    f"Update to sarvamai>={_MIN_SARVAMAI_VERSION} in requirements.txt.",
                 ))
 
         if pkg_name == "pillow":
@@ -242,12 +263,14 @@ def check_requirements(recipe_dir: Path) -> list[Issue]:
                 issues.append(Issue(
                     "error", "requirements",
                     f"Pillow must be >={_MIN_PILLOW_VERSION} (CVE guard), found: {line!r}",
+                    f"Update to Pillow>={_MIN_PILLOW_VERSION} to address a known CVE.",
                 ))
 
     if not has_sarvam:
         issues.append(Issue(
             "warning", "requirements",
             "sarvamai not found in requirements.txt — is the Sarvam SDK imported?",
+            f"Add 'sarvamai>={_MIN_SARVAMAI_VERSION}' to requirements.txt if using the Sarvam SDK.",
         ))
 
     return issues
@@ -290,12 +313,14 @@ def check_secrets(recipe_dir: Path) -> list[Issue]:
                     issues.append(Issue(
                         "error", "secrets",
                         f"Possible hardcoded API key in notebook: {rel}",
+                        "Remove the key and load it via os.environ or python-dotenv instead.",
                     ))
                     break  # one error per notebook is sufficient
         elif _SECRET_RE.search(text):
             issues.append(Issue(
                 "error", "secrets",
                 f"Possible hardcoded API key in: {rel}",
+                "Remove the key and load it via os.environ or python-dotenv instead.",
             ))
 
     return issues
@@ -328,9 +353,14 @@ def check_notebook_structure(recipe_dir: Path) -> list[Issue]:
         return [Issue(
             "error", "notebook-structure",
             f"Cannot parse notebook JSON: {nb_path.name}",
+            "Ensure the notebook is valid JSON (open it in Jupyter to check for parse errors).",
         )]
     if not cells:
-        return [Issue("error", "notebook-structure", "Notebook has no cells")]
+        return [Issue(
+            "error", "notebook-structure",
+            "Notebook has no cells",
+            "Add at least two cells: a markdown title cell and a pip install code cell.",
+        )]
 
     issues: list[Issue] = []
 
@@ -339,17 +369,23 @@ def check_notebook_structure(recipe_dir: Path) -> list[Issue]:
         issues.append(Issue(
             "error", "notebook-structure",
             "Cell 1 (index 0) must be a markdown title cell with pipeline overview",
+            "Change the first cell type to markdown and add a title and pipeline diagram.",
         ))
 
     # Cell 1 must be a code cell containing pip install.
     if len(cells) < 2:
-        issues.append(Issue("error", "notebook-structure", "Notebook has fewer than 2 cells"))
+        issues.append(Issue(
+            "error", "notebook-structure",
+            "Notebook has fewer than 2 cells",
+            "Add a second code cell containing the pip install command.",
+        ))
         return issues
 
     if cells[1].get("cell_type") != "code":
         issues.append(Issue(
             "error", "notebook-structure",
             "Cell 2 (index 1) must be a code cell containing the pip install command",
+            "Change the second cell type to code and add '%pip install ...'.",
         ))
     else:
         src = _cell_source(cells[1])
@@ -357,6 +393,7 @@ def check_notebook_structure(recipe_dir: Path) -> list[Issue]:
             issues.append(Issue(
                 "warning", "notebook-structure",
                 "Cell 2 (index 1) does not contain 'pip install'",
+                "Add '%pip install <packages>' to the second cell.",
             ))
 
     # Aggregate all code-cell source for global keyword checks.
@@ -368,18 +405,21 @@ def check_notebook_structure(recipe_dir: Path) -> list[Issue]:
         issues.append(Issue(
             "error", "notebook-structure",
             "Missing: 'from __future__ import annotations' in code cells",
+            "Add 'from __future__ import annotations' as the first line of your setup code cell.",
         ))
 
     if "raise RuntimeError" not in all_code:
         issues.append(Issue(
             "error", "notebook-structure",
             "Missing: API key fail-fast guard ('raise RuntimeError') in code cells",
+            "Add a guard: if not SARVAM_API_KEY: raise RuntimeError('Set SARVAM_API_KEY ...').",
         ))
 
     if "pathlib" not in all_code:
         issues.append(Issue(
             "warning", "notebook-structure",
             "pathlib not found — prefer pathlib.Path over os.path for file operations",
+            "Import pathlib: 'from pathlib import Path' and use Path() for file operations.",
         ))
 
     return issues
@@ -421,6 +461,7 @@ def check_emoji(recipe_dir: Path) -> list[Issue]:
                     issues.append(Issue(
                         "error", "no-emoji",
                         f"Emoji in print statement: {stripped[:80]!r}",
+                        "Remove the emoji from this print statement.",
                     ))
                 if "#" in stripped:
                     comment = stripped[stripped.index("#"):]
@@ -428,6 +469,7 @@ def check_emoji(recipe_dir: Path) -> list[Issue]:
                         issues.append(Issue(
                             "error", "no-emoji",
                             f"Emoji in inline comment: {stripped[:80]!r}",
+                            "Remove the emoji from this inline comment.",
                         ))
 
         elif cell_type == "markdown" and _EMOJI_RE.search(src):
@@ -435,6 +477,7 @@ def check_emoji(recipe_dir: Path) -> list[Issue]:
             issues.append(Issue(
                 "error", "no-emoji",
                 f"Emoji in markdown cell: {preview!r}",
+                "Remove all emoji from this markdown cell.",
             ))
 
     return issues
@@ -469,6 +512,58 @@ def validate_recipe(recipe_dir: Path) -> list[Issue]:
 
 
 # ---------------------------------------------------------------------------
+# Auto-fix
+# ---------------------------------------------------------------------------
+
+
+def auto_fix(recipe_dir: Path) -> list[str]:
+    """Automatically repair common recipe structure issues.
+
+    Fixes applied:
+    - Creates .gitignore with required patterns if missing; appends any
+      missing patterns to an existing .gitignore.
+    - Creates sample_data/ and outputs/ directories with .gitkeep placeholders.
+    - Creates .env.example with a placeholder API key if missing.
+
+    Args:
+        recipe_dir: Path to the recipe directory to repair.
+
+    Returns:
+        List of human-readable strings describing each fix applied.
+    """
+    fixes: list[str] = []
+
+    gitignore = recipe_dir / ".gitignore"
+    required_patterns = [".env", "sample_data/*", "outputs/*"]
+
+    if not gitignore.exists():
+        gitignore.write_text("\n".join(required_patterns) + "\n")
+        fixes.append("Created .gitignore with required patterns")
+    else:
+        content = gitignore.read_text().splitlines()
+        for pat in required_patterns:
+            if pat not in content:
+                content.append(pat)
+                fixes.append(f"Added '{pat}' to .gitignore")
+        gitignore.write_text("\n".join(content) + "\n")
+
+    for folder in ["sample_data", "outputs"]:
+        path = recipe_dir / folder
+        path.mkdir(exist_ok=True)
+        gitkeep = path / ".gitkeep"
+        if not gitkeep.exists():
+            gitkeep.touch()
+            fixes.append(f"Created {folder}/.gitkeep")
+
+    env_example = recipe_dir / ".env.example"
+    if not env_example.exists():
+        env_example.write_text("SARVAM_API_KEY=your-sarvam-api-key\n")
+        fixes.append("Created .env.example")
+
+    return fixes
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
@@ -499,6 +594,16 @@ def main() -> int:
         action="store_true",
         help="Treat warnings as errors — exit 1 when any warning is present.",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output validation results as JSON.",
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Automatically repair common recipe issues before validation.",
+    )
     args = parser.parse_args()
 
     recipe_dir: Path = args.recipe_dir.resolve()
@@ -506,13 +611,44 @@ def main() -> int:
         print(f"ERROR: {recipe_dir} is not a directory.", file=sys.stderr)
         return 1
 
+    if args.fix:
+        fixes = auto_fix(recipe_dir)
+        if fixes:
+            print("Auto-fix applied:")
+            for fix in fixes:
+                print(f"  + {fix}")
+            print()
+
     issues = validate_recipe(recipe_dir)
     errors = [i for i in issues if i.severity == "error"]
     warnings = [i for i in issues if i.severity == "warning"]
 
+    if args.json:
+        print(json.dumps(
+            [
+                {
+                    "severity": i.severity,
+                    "check": i.check,
+                    "message": i.message,
+                    "suggestion": i.suggestion,
+                }
+                for i in issues
+            ],
+            indent=2,
+        ))
+        if args.strict:
+            return 1 if issues else 0
+        return 1 if errors else 0
+
     for issue in issues:
         tag = "ERROR  " if issue.severity == "error" else "WARNING"
         print(f"  [{tag}] [{issue.check}] {issue.message}")
+        if issue.suggestion:
+            print(f"    Suggestion: {issue.suggestion}")
+        if issue.severity == "error":
+            print(f"::error::{issue.message}")
+        else:
+            print(f"::warning::{issue.message}")
 
     status = "PASS" if not errors else "FAIL"
     print(f"\n{status} — {recipe_dir.name}: {len(errors)} error(s), {len(warnings)} warning(s)")
