@@ -2,13 +2,11 @@
 
 This example demonstrates how to stream chat responses from the Sarvam API.
 
-## Setup
-
-Install dependencies:
+## Install dependencies
 
 pip install -r requirements.txt
 
-Set your API key:
+## Setup
 
 export SARVAM_API_KEY=your-api-key
 
