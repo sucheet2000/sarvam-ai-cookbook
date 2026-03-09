@@ -334,6 +334,58 @@ Copy this checklist into your pull request description:
 
 ---
 
+## Automated CI Checks
+
+Every pull request that touches `examples/` automatically triggers the
+**Recipe PR Check** GitHub Actions workflow. Two jobs run in parallel:
+
+| Job | What it does |
+| :--- | :--- |
+| `unit-tests` | Runs `pytest tests/test_validate_recipe.py` to verify the validator itself |
+| `validate-recipes` | Detects which `examples/` subdirectories changed in the PR and runs `scripts/validate_recipe.py` on each one |
+
+The workflow enforces the same items as the [PR Checklist](#pr-checklist)
+above — no API keys or credentials are needed in CI.
+
+### Checks performed automatically
+
+| Check group | What is verified |
+| :--- | :--- |
+| `required-files` | All seven mandatory files are present |
+| `gitignore` | `.gitignore` contains `.env`, `sample_data/*`, `outputs/*` |
+| `requirements` | Every package has a `>=` pin; `sarvamai>=0.1.24`; `Pillow>=12.1.1` if present |
+| `secrets` | No hardcoded API keys in any file or notebook cell |
+| `notebook-structure` | Cell 1 is markdown; cell 2 is pip install; `from __future__ import annotations` present; `raise RuntimeError` guard present |
+| `no-emoji` | No emoji in print statements, inline comments, or markdown cells |
+
+### Running the validator locally
+
+Before opening a PR, run the same checks on your recipe with:
+
+```bash
+# From the repository root — install dev dependencies once
+pip install -r requirements-dev.txt
+
+# Validate your recipe
+python scripts/validate_recipe.py examples/your-recipe-name
+
+# Exit 0 = no errors.  Exit 1 = errors found (see output for details).
+```
+
+To also treat warnings as errors (useful for a final pre-PR check):
+
+```bash
+python scripts/validate_recipe.py examples/your-recipe-name --strict
+```
+
+To run the validator's own test suite:
+
+```bash
+pytest tests/test_validate_recipe.py -v
+```
+
+---
+
 ## Code Style Guide
 
 **Python version:** 3.9 or later.
